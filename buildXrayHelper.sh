@@ -1,28 +1,7 @@
 #!/bin/bash
 
-TARGET="$1"
 ARCHS=(arm arm64 386 amd64)
-DEST="../app/src/main/assets"
-
-is_in_array() {
-  local value="$1"
-  local array=("${@:2}")
-
-  for item in "${array[@]}"; do
-    if [[ "$item" == "$value" ]]; then
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-check_target() {
-  if ! is_in_array "$TARGET" "${ARCHS[@]}"; then
-    echo "Not supported"
-    exit 1
-  fi
-}
+DEST_BASE="../app/src/main/jniLibs"
 
 prepare_go() {
   echo "Install dependencies"
@@ -30,17 +9,22 @@ prepare_go() {
 }
 
 build_android() {
-  echo "Building XrayHelper for $TARGET"
-  local OUTPUT="$DEST/xrayhelper"
-  rm -f $OUTPUT
-  CGO_ENABLED=0 GOOS=linux GOARCH=$TARGET \
-    go build -v -o $OUTPUT \
+  local TARGET_ARCH=$1
+  local ABI=$2
+  echo "Building XrayHelper for $ABI"
+  local OUTPUT_DIR="$DEST_BASE/$ABI"
+  mkdir -p "$OUTPUT_DIR"
+  local OUTPUT="$OUTPUT_DIR/xrayhelper"
+  rm -f "$OUTPUT"
+  CGO_ENABLED=0 GOOS=linux GOARCH=$TARGET_ARCH \
+    go build -v -o "$OUTPUT" \
     -ldflags "-s -w -buildid=" -buildvcs=false -trimpath ./main
 }
 
-check_target
-
 pushd XrayHelper
 prepare_go
-build_android
+build_android arm armeabi-v7a
+build_android arm64 arm64-v8a
+build_android 386 x86
+build_android amd64 x86_64
 popd

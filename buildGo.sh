@@ -1,19 +1,25 @@
 #!/bin/bash
 
 # Set vars
-export GOROOT="$(realpath go-root)"
-export GOPATH="$(realpath go-path)"
+export GOROOT=$(go env GOROOT)
+export GOPATH=$(go env GOPATH)
 
 # Set path
 export PATH="$GOROOT/bin:$PATH"
-export PATH="$GOPATH/bin:$PATH"
+export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
-git clone https://github.com/golang/go.git $GOROOT
+if [ ! -d "$GOROOT/src" ]; then
+    git clone https://github.com/golang/go.git $GOROOT
+fi
+
+GO_VERSION="go$(sed -n -E 's/^go (.*)/\1/p' XrayCore/go.mod)"
+
 pushd $GOROOT
-git checkout "go$(sed -n -E 's/^go (.*)/\1/p' ../XrayCore/go.mod)"
+git checkout "$GO_VERSION"
 cd src
-./make.bash
+chmod +x make.bash
+sudo ./make.bash
 popd
 
-./buildXrayCore.sh $1
-./buildXrayHelper.sh $1
+./buildXrayCore.sh
+./buildXrayHelper.sh
