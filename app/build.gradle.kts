@@ -30,7 +30,11 @@ android {
         buildConfig = true
         viewBinding = true
     }
-
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -44,18 +48,15 @@ android {
 
     externalNativeBuild {
         ndkVersion = "28.2.13676358"
-        ndkBuild {
-            path = file("src/main/jni/Android.mk")
-        }
     }
 
     splits {
         abi {
             isEnable = true
-            isUniversalApk = false
+            isUniversalApk = true
             reset()
             //noinspection ChromeOsAbiSupport
-            include(*abiTarget.split(",").toTypedArray())
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
         }
     }
 

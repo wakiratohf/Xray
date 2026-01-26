@@ -25,7 +25,7 @@
       echo "Building XrayCore for all ABIs"
       rm -f "$DEST/XrayCore.aar"
       gomobile init
-      gomobile bind -o "$DEST/XrayCore.aar" -androidapi 26 -target "android/arm,android/arm64,android/386,android/amd64" -ldflags="-buildid=" -trimpath
+      gomobile bind -o "$DEST/XrayCore.aar" -androidapi 24 -target "android/arm,android/arm64,android/386,android/amd64" -ldflags="-buildid=" -trimpath
     }
 
     refresh_dependencies() {
