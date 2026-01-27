@@ -8,8 +8,23 @@ import io.github.saeeddev94.xray.repository.ProfileRepository
 
 class Xray : Application() {
 
+    companion object {
+        var instance: Xray? = null
+    }
+
     private val xrayDatabase by lazy { XrayDatabase.ref(this) }
     val configRepository by lazy { ConfigRepository(xrayDatabase.configDao()) }
     val linkRepository by lazy { LinkRepository(xrayDatabase.linkDao()) }
     val profileRepository by lazy { ProfileRepository(xrayDatabase.profileDao()) }
+    val xrayDataHelper by lazy { XrayDataHelper(this) }
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+        downloadXrayData()
+    }
+
+    fun downloadXrayData() {
+        xrayDataHelper.downloadGeoData()
+    }
 }

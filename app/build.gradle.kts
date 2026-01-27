@@ -89,6 +89,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.runtime)
+    implementation(project(":utils:blankj-utilcode"))
+    implementation(project(":utils:toh-utility"))
     ksp(libs.androidx.room.compiler)
     implementation(libs.blacksquircle.ui.editorkit)
     implementation(libs.blacksquircle.ui.language.json)

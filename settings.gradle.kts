@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Xray"
 include(":app")
+include(":utils:toh-utility")
+include(":utils:blankj-utilcode")

@@ -34,6 +34,7 @@ import com.google.android.material.tabs.TabLayout
 import io.github.saeeddev94.xray.BuildConfig
 import io.github.saeeddev94.xray.R
 import io.github.saeeddev94.xray.Settings
+import io.github.saeeddev94.xray.Xray
 import io.github.saeeddev94.xray.adapter.ProfileAdapter
 import io.github.saeeddev94.xray.database.Link
 import io.github.saeeddev94.xray.databinding.ActivityMainBinding
@@ -124,6 +125,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
+        Xray.instance?.downloadXrayData()
         binding.toggleButton.setOnClickListener { onToggleButtonClick() }
         binding.pingBox.setOnClickListener { ping() }
         binding.navView.menu.findItem(R.id.appVersion).title = BuildConfig.VERSION_NAME

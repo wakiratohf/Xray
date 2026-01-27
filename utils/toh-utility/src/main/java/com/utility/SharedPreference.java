@@ -1,0 +1,144 @@
+package com.utility;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.preference.PreferenceManager;
+
+public class SharedPreference {
+
+    static SharedPreferences getSharedPreferences(Context context) {
+        if (context == null) {
+            return null;
+        }
+        SharedPreferences sharedPreferences;
+        try {
+            sharedPreferences = context.getSharedPreferences(context.getPackageName(), Context.MODE_PRIVATE);
+        } catch (Exception e) {
+            sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        }
+        return sharedPreferences;
+    }
+
+    // String
+    public static String getString(Context context, Object key, String defaultValue) {
+        if (context != null) {
+            try {
+                return getSharedPreferences(context).getString(String.valueOf(key), defaultValue);
+            } catch (Exception e) {
+                DebugLog.loge(e);
+            }
+        }
+        return defaultValue;
+    }
+
+    public static void setString(Context context, Object key, String data) {
+        try {
+            if (context != null) {
+                Editor editor = getSharedPreferences(context).edit();
+                editor.putString(String.valueOf(key), data);
+                editor.apply();
+            }
+        } catch (Exception e) {
+            DebugLog.loge(e);
+        }
+    }
+
+    // Long
+    public static Long getLong(Context context, Object key, Long defaultValue) {
+        if (context != null) {
+            try {
+                return getSharedPreferences(context).getLong(String.valueOf(key), defaultValue);
+            } catch (Exception e) {
+                DebugLog.loge(e);
+            }
+        }
+        return defaultValue;
+    }
+
+    public static void setLong(Context context, Object key, Long data) {
+        if (context != null) {
+            try {
+                Editor editor = getSharedPreferences(context).edit();
+                editor.putLong(String.valueOf(key), data);
+                editor.apply();
+            } catch (Exception e) {
+                DebugLog.loge(e);
+            }
+        }
+    }
+
+    // Boolean
+    public static Boolean getBoolean(Context context, Object key, Boolean defaultValue) {
+        if (context != null) {
+            try {
+                return getSharedPreferences(context).getBoolean(String.valueOf(key), defaultValue);
+            } catch (Exception e) {
+                DebugLog.loge(e);
+            }
+        }
+        return defaultValue;
+    }
+
+    public static void setBoolean(Context context, Object key, Boolean data) {
+        if (context != null) {
+            try {
+                Editor editor = getSharedPreferences(context).edit();
+                editor.putBoolean(String.valueOf(key), data);
+                editor.apply();
+            } catch (Exception e) {
+                DebugLog.loge(e);
+            }
+        }
+    }
+
+    // Integer
+    public static Integer getInt(Context context, Object key, Integer defaultValue) {
+        if (context != null) {
+            try {
+                return getSharedPreferences(context).getInt(String.valueOf(key), defaultValue);
+            } catch (Exception e) {
+                DebugLog.loge(e);
+            }
+        }
+        return defaultValue;
+    }
+
+    public static void setInt(Context context, Object key, Integer data) {
+        try {
+            if (context != null) {
+                Editor editor = getSharedPreferences(context).edit();
+                editor.putInt(String.valueOf(key), data);
+                editor.apply();
+            }
+        } catch (Exception e) {
+            DebugLog.loge(e);
+        }
+    }
+
+    // Float
+    public static Float getFloat(Context context, Object key, Float defaultValue) {
+        if (context != null) {
+            try {
+                return getSharedPreferences(context).getFloat(String.valueOf(key), defaultValue);
+            } catch (Exception e) {
+                DebugLog.loge(e);
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    public static void setFloat(Context context, Object key, Float data) {
+        try {
+            if (context != null) {
+                Editor editor = getSharedPreferences(context).edit();
+                editor.putFloat(String.valueOf(key), data);
+                editor.apply();
+            }
+        } catch (Exception e) {
+            DebugLog.loge(e);
+        }
+    }
+
+}
