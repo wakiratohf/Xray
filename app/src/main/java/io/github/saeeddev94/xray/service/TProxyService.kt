@@ -1,6 +1,5 @@
 package io.github.saeeddev94.xray.service
 
-import XrayCore.XrayCore
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -8,41 +7,23 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.VpnService
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelFileDescriptor
-import android.service.quicksettings.Tile
-
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import io.github.saeeddev94.xray.BuildConfig
 import io.github.saeeddev94.xray.R
-import io.github.saeeddev94.xray.Settings
-import io.github.saeeddev94.xray.Xray
 import io.github.saeeddev94.xray.activity.MainActivity
-import io.github.saeeddev94.xray.database.Config
-import io.github.saeeddev94.xray.database.Profile
-import io.github.saeeddev94.xray.dto.XrayConfig
-import io.github.saeeddev94.xray.helper.ConfigHelper
-import io.github.saeeddev94.xray.helper.FileHelper
-import io.github.saeeddev94.xray.helper.TransparentProxyHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.File
-import kotlin.reflect.cast
 
 @SuppressLint("VpnServicePolicy")
-class TProxyService : VpnService() {
+class TProxyService : VpnService(), XrayManager.VpnServiceListener {
 
     companion object {
         init {
@@ -87,276 +68,53 @@ class TProxyService : VpnService() {
         }
     }
 
-    private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
-    private val connectivityManager by lazy { getSystemService(ConnectivityManager::class.java) }
-    private val settings by lazy { Settings(applicationContext) }
-    private val transparentProxyHelper by lazy { TransparentProxyHelper(this, settings) }
-    private val configRepository by lazy { Xray::class.cast(application).configRepository }
-    private val profileRepository by lazy { Xray::class.cast(application).profileRepository }
+    internal val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
+    private val xrayManager by lazy { XrayManager(this) }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    private var isRunning: Boolean = false
-    private var tunDevice: ParcelFileDescriptor? = null
-    private var cellularCallback: ConnectivityManager.NetworkCallback? = null
     private var toast: Toast? = null
 
-    private external fun TProxyStartService(configPath: String, fd: Int)
-    private external fun TProxyStopService()
+    external fun TProxyStartService(configPath: String, fd: Int)
+    external fun TProxyStopService()
     private external fun TProxyGetStats(): LongArray
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         scope.launch {
             when (intent?.action) {
-                START_VPN_SERVICE_ACTION_NAME -> start(getProfile(), globalConfigs())
-                NEW_CONFIG_SERVICE_ACTION_NAME -> newConfig(getProfile(), globalConfigs())
-                STOP_VPN_SERVICE_ACTION_NAME -> stopVPN()
+                START_VPN_SERVICE_ACTION_NAME -> xrayManager.start(xrayManager.getProfile(), xrayManager.globalConfigs())
+                NEW_CONFIG_SERVICE_ACTION_NAME -> xrayManager.newConfig(xrayManager.getProfile(), xrayManager.globalConfigs())
+                STOP_VPN_SERVICE_ACTION_NAME -> xrayManager.stopVPN()
                 STATUS_VPN_SERVICE_ACTION_NAME -> broadcastStatus()
-                NETWORK_UPDATE_SERVICE_ACTION_NAME -> transparentProxyHelper.networkUpdate()
+                NETWORK_UPDATE_SERVICE_ACTION_NAME -> xrayManager.networkUpdate()
             }
         }
         return START_STICKY
     }
 
     override fun onRevoke() {
-        stopVPN()
+        xrayManager.onRevoke()
     }
 
     override fun onDestroy() {
         scope.cancel()
-        cellularCallback?.let { connectivityManager.unregisterNetworkCallback(it) }
-        cellularCallback = null
+        xrayManager.onDestroy()
         toast = null
         super.onDestroy()
     }
 
-    private fun configName(profile: Profile?): String = profile?.name ?: settings.tunName
-
-    private fun getIsRunning(): Boolean {
-        return if (settings.transparentProxy) {
-            transparentProxyHelper.isRunning()
-        } else {
-            isRunning
-        }
+    override fun getService(): TProxyService {
+        return this
     }
 
-    private suspend fun getProfile(): Profile? {
-        return if (settings.selectedProfile == 0L) {
-            null
-        } else {
-            profileRepository.find(settings.selectedProfile)
-        }
-    }
-
-    private suspend fun globalConfigs(): Config {
-        return configRepository.get()
-    }
-
-    private fun getConfig(profile: Profile, globalConfigs: Config): XrayConfig? {
-        val dir: File = applicationContext.filesDir
-        val config: File = settings.xrayConfig()
-        val configHelper = runCatching { ConfigHelper(settings, globalConfigs, profile.config) }
-        val error: String = if (configHelper.isSuccess) {
-            FileHelper.createOrUpdate(config, configHelper.getOrNull().toString())
-            XrayCore.test(dir.absolutePath, config.absolutePath)
-        } else {
-            configHelper.exceptionOrNull()?.message ?: getString(R.string.invalidProfile)
-        }
-        if (error.isNotEmpty()) {
-            showToast(error)
-            return null
-        }
-        return XrayConfig(dir.absolutePath, config.absolutePath)
-    }
-
-    private fun start(profile: Profile?, globalConfigs: Config) {
-        if (profile == null) return
-        getConfig(profile, globalConfigs)?.let {
-            startXray(it)
-            startVPN(profile)
-        }
-    }
-
-    private fun newConfig(profile: Profile?, globalConfigs: Config) {
-        if (!getIsRunning() || profile == null) return
-        stopXray()
-        getConfig(profile, globalConfigs).also {
-            if (it == null) stopVPN() else startXray(it)
-        }?.let {
-            val name = configName(profile)
-            val notification = createNotification(name)
-            showToast(name)
-            broadcastStart(NEW_CONFIG_SERVICE_ACTION_NAME, name)
-            updateTile(name, Tile.STATE_ACTIVE)
-            notificationManager.notify(VPN_SERVICE_NOTIFICATION_ID, notification)
-        }
-    }
-
-    private fun startXray(config: XrayConfig) {
-        if (settings.transparentProxy) transparentProxyHelper.startService()
-        else XrayCore.start(config.dir, config.file)
-    }
-
-    private fun stopXray() {
-        if (settings.transparentProxy) transparentProxyHelper.stopService()
-        else XrayCore.stop()
-    }
-
-    private fun startVPN(profile: Profile?) {
-        if (settings.transparentProxy) {
-            transparentProxyHelper.enableProxy()
-            transparentProxyHelper.monitorNetwork()
-        } else if (settings.tun2socks) {
-            /** Create Tun */
-            val tun = Builder()
-            val tunName = getString(R.string.appName)
-
-            /** Basic tun config */
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tun.setMetered(false)
-            tun.setMtu(settings.tunMtu)
-            tun.setSession(tunName)
-
-            /** IPv4 */
-            tun.addAddress(settings.tunAddress, settings.tunPrefix)
-            tun.addDnsServer(settings.primaryDns)
-            tun.addDnsServer(settings.secondaryDns)
-
-            /** IPv6 */
-            if (settings.enableIpV6) {
-                tun.addAddress(settings.tunAddressV6, settings.tunPrefixV6)
-                tun.addDnsServer(settings.primaryDnsV6)
-                tun.addDnsServer(settings.secondaryDnsV6)
-                tun.addRoute("::", 0)
+    override fun showToast(message: String) {
+        Handler(Looper.getMainLooper()).post {
+            toast?.cancel()
+            toast = Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).also {
+                it.show()
             }
-
-            /** Bypass LAN (IPv4) */
-            if (settings.bypassLan) {
-                settings.tunRoutes.forEach {
-                    val address = it.split('/')
-                    tun.addRoute(address[0], address[1].toInt())
-                }
-            } else {
-                tun.addRoute("0.0.0.0", 0)
-            }
-
-            /** Apps Routing */
-            if (settings.appsRoutingMode) tun.addDisallowedApplication(applicationContext.packageName)
-            settings.appsRouting.split("\n").forEach {
-                val packageName = it.trim()
-                if (packageName.isBlank()) return@forEach
-                if (settings.appsRoutingMode) tun.addDisallowedApplication(packageName)
-                else tun.addAllowedApplication(packageName)
-            }
-
-            /** Build tun device */
-            tunDevice = tun.establish()
-
-            /** Check tun device */
-            if (tunDevice == null) {
-                Log.e("TProxyService", "tun#establish failed")
-                return
-            }
-
-            /** Create, Update tun2socks config */
-            val tun2socksConfig = arrayListOf(
-                "tunnel:",
-                "  name: $tunName",
-                "  mtu: ${settings.tunMtu}",
-                "socks5:",
-                "  address: ${settings.socksAddress}",
-                "  port: ${settings.socksPort}",
-            )
-            if (
-                settings.socksUsername.trim().isNotEmpty() &&
-                settings.socksPassword.trim().isNotEmpty()
-            ) {
-                tun2socksConfig.add("  username: ${settings.socksUsername}")
-                tun2socksConfig.add("  password: ${settings.socksPassword}")
-            }
-            tun2socksConfig.add(if (settings.socksUdp) "  udp: udp" else "  udp: tcp")
-            tun2socksConfig.add("")
-            FileHelper.createOrUpdate(
-                settings.tun2socksConfig(),
-                tun2socksConfig.joinToString("\n")
-            )
-
-            /** Start tun2socks */
-            TProxyStartService(settings.tun2socksConfig().absolutePath, tunDevice!!.fd)
-        }
-
-        /** Service Notification */
-        val name = configName(profile)
-        startForeground(VPN_SERVICE_NOTIFICATION_ID, createNotification(name))
-
-        /** Listen for cellular changes */
-        if (cellularCallback == null) {
-            val request = NetworkRequest.Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-                .build()
-            cellularCallback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    this@TProxyService.transparentProxyHelper.networkUpdate()
-                }
-            }
-            connectivityManager.registerNetworkCallback(request, cellularCallback!!)
-        }
-
-        /** Broadcast start event */
-        showToast("Start VPN")
-        isRunning = true
-        broadcastStart(START_VPN_SERVICE_ACTION_NAME, name)
-        updateTile(name, Tile.STATE_ACTIVE)
-    }
-
-    private fun stopVPN() {
-        if (settings.transparentProxy) {
-            transparentProxyHelper.disableProxy()
-        } else {
-            TProxyStopService()
-            runCatching { tunDevice?.close() }
-            tunDevice = null
-            isRunning = false
-        }
-        stopXray()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        showToast("Stop VPN")
-        broadcastStop()
-        updateTile(getString(R.string.vpnStopped), Tile.STATE_INACTIVE)
-        stopSelf()
-    }
-
-    private fun broadcastStart(action: String, configName: String) {
-        Intent(action).also {
-            it.`package` = BuildConfig.APPLICATION_ID
-            it.putExtra("profile", configName)
-            sendBroadcast(it)
         }
     }
 
-    private fun broadcastStop() {
-        Intent(STOP_VPN_SERVICE_ACTION_NAME).also {
-            it.`package` = BuildConfig.APPLICATION_ID
-            sendBroadcast(it)
-        }
-    }
-
-    private fun broadcastStatus() {
-        Intent(STATUS_VPN_SERVICE_ACTION_NAME).also {
-            it.`package` = BuildConfig.APPLICATION_ID
-            it.putExtra("isRunning", getIsRunning())
-            sendBroadcast(it)
-        }
-    }
-
-    private fun updateTile(label: String, state: Int) {
-        Intent(UPDATE_TILE_ACTION_NAME).also {
-            it.`package` = BuildConfig.APPLICATION_ID
-            it.putExtra("label", label)
-            it.putExtra("state", state)
-            sendBroadcast(it)
-        }
-    }
-
-    private fun createNotification(name: String): Notification {
+    override fun createNotification(name: String): Notification {
         val pendingActivity = PendingIntent.getActivity(
             applicationContext,
             OPEN_MAIN_ACTIVITY_ACTION_ID,
@@ -392,13 +150,35 @@ class TProxyService : VpnService() {
         return id
     }
 
-    private fun showToast(message: String) {
-        Handler(Looper.getMainLooper()).post {
-            toast?.cancel()
-            toast = Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).also {
-                it.show()
-            }
+    override fun updateTile(label: String, state: Int) {
+        Intent(UPDATE_TILE_ACTION_NAME).also {
+            it.`package` = BuildConfig.APPLICATION_ID
+            it.putExtra("label", label)
+            it.putExtra("state", state)
+            sendBroadcast(it)
         }
     }
 
+    override fun broadcastStart(action: String, configName: String) {
+        Intent(action).also {
+            it.`package` = BuildConfig.APPLICATION_ID
+            it.putExtra("profile", configName)
+            sendBroadcast(it)
+        }
+    }
+
+    override fun broadcastStop() {
+        Intent(STOP_VPN_SERVICE_ACTION_NAME).also {
+            it.`package` = BuildConfig.APPLICATION_ID
+            sendBroadcast(it)
+        }
+    }
+
+    override fun broadcastStatus() {
+        Intent(STATUS_VPN_SERVICE_ACTION_NAME).also {
+            it.`package` = BuildConfig.APPLICATION_ID
+            it.putExtra("isRunning", xrayManager.getIsRunning())
+            sendBroadcast(it)
+        }
+    }
 }
