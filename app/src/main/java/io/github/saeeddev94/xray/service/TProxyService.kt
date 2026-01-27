@@ -17,6 +17,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.service.quicksettings.Tile
+
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
@@ -53,6 +55,7 @@ class TProxyService : VpnService() {
         const val START_VPN_SERVICE_ACTION_NAME = "$PKG_NAME.VpnStart"
         const val NEW_CONFIG_SERVICE_ACTION_NAME = "$PKG_NAME.NewConfig"
         const val NETWORK_UPDATE_SERVICE_ACTION_NAME = "$PKG_NAME.NetworkUpdate"
+        const val UPDATE_TILE_ACTION_NAME = "$PKG_NAME.UpdateTile"
         private const val VPN_SERVICE_NOTIFICATION_ID = 1
         private const val OPEN_MAIN_ACTIVITY_ACTION_ID = 2
         private const val STOP_VPN_SERVICE_ACTION_ID = 3
@@ -183,6 +186,7 @@ class TProxyService : VpnService() {
             val notification = createNotification(name)
             showToast(name)
             broadcastStart(NEW_CONFIG_SERVICE_ACTION_NAME, name)
+            updateTile(name, Tile.STATE_ACTIVE)
             notificationManager.notify(VPN_SERVICE_NOTIFICATION_ID, notification)
         }
     }
@@ -300,6 +304,7 @@ class TProxyService : VpnService() {
         showToast("Start VPN")
         isRunning = true
         broadcastStart(START_VPN_SERVICE_ACTION_NAME, name)
+        updateTile(name, Tile.STATE_ACTIVE)
     }
 
     private fun stopVPN() {
@@ -315,6 +320,7 @@ class TProxyService : VpnService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         showToast("Stop VPN")
         broadcastStop()
+        updateTile(getString(R.string.vpnStopped), Tile.STATE_INACTIVE)
         stopSelf()
     }
 
@@ -337,6 +343,15 @@ class TProxyService : VpnService() {
         Intent(STATUS_VPN_SERVICE_ACTION_NAME).also {
             it.`package` = BuildConfig.APPLICATION_ID
             it.putExtra("isRunning", getIsRunning())
+            sendBroadcast(it)
+        }
+    }
+
+    private fun updateTile(label: String, state: Int) {
+        Intent(UPDATE_TILE_ACTION_NAME).also {
+            it.`package` = BuildConfig.APPLICATION_ID
+            it.putExtra("label", label)
+            it.putExtra("state", state)
             sendBroadcast(it)
         }
     }
