@@ -20,7 +20,7 @@ import io.github.saeeddev94.xray.adapter.AppsRoutingAdapter
 import io.github.saeeddev94.xray.databinding.ActivityAppsRoutingBinding
 import io.github.saeeddev94.xray.dto.AppList
 import io.github.saeeddev94.xray.helper.TransparentProxyHelper
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -176,7 +176,7 @@ class AppsRoutingActivity : AppCompatActivity() {
                 binding.search.clearFocus()
                 settings.appsRoutingMode = appsRoutingMode
                 settings.appsRouting = appsRouting
-                if (stopService) TProxyService.stop(this@AppsRoutingActivity)
+                if (stopService) AppService.stop(this@AppsRoutingActivity)
                 finish()
             }
         }

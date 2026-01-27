@@ -43,7 +43,7 @@ import io.github.saeeddev94.xray.helper.HttpHelper
 import io.github.saeeddev94.xray.helper.LinkHelper
 import io.github.saeeddev94.xray.helper.ProfileTouchHelper
 import io.github.saeeddev94.xray.helper.TransparentProxyHelper
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import io.github.saeeddev94.xray.viewmodel.LinkViewModel
 import io.github.saeeddev94.xray.viewmodel.ProfileViewModel
 import kotlinx.coroutines.Dispatchers
@@ -94,9 +94,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         override fun onReceive(context: Context?, intent: Intent?) {
             if (context == null || intent == null) return
             when (intent.action) {
-                TProxyService.START_VPN_SERVICE_ACTION_NAME -> vpnStartStatus()
-                TProxyService.STOP_VPN_SERVICE_ACTION_NAME -> vpnStopStatus()
-                TProxyService.STATUS_VPN_SERVICE_ACTION_NAME -> {
+                AppService.START_VPN_SERVICE_ACTION_NAME -> vpnStartStatus()
+                AppService.STOP_VPN_SERVICE_ACTION_NAME -> vpnStopStatus()
+                AppService.STATUS_VPN_SERVICE_ACTION_NAME -> {
                     intent.getBooleanExtra("isRunning", false).let { isRunning ->
                         if (isRunning) vpnStartStatus()
                         else vpnStopStatus()
@@ -188,9 +188,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onStart() {
         super.onStart()
         IntentFilter().also {
-            it.addAction(TProxyService.START_VPN_SERVICE_ACTION_NAME)
-            it.addAction(TProxyService.STOP_VPN_SERVICE_ACTION_NAME)
-            it.addAction(TProxyService.STATUS_VPN_SERVICE_ACTION_NAME)
+            it.addAction(AppService.START_VPN_SERVICE_ACTION_NAME)
+            it.addAction(AppService.STOP_VPN_SERVICE_ACTION_NAME)
+            it.addAction(AppService.STATUS_VPN_SERVICE_ACTION_NAME)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(vpnServiceEventReceiver, it, RECEIVER_NOT_EXPORTED)
             } else {
@@ -198,8 +198,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 registerReceiver(vpnServiceEventReceiver, it)
             }
         }
-        Intent(this, TProxyService::class.java).also {
-            it.action = TProxyService.STATUS_VPN_SERVICE_ACTION_NAME
+        Intent(this, AppService::class.java).also {
+            it.action = AppService.STATUS_VPN_SERVICE_ACTION_NAME
             startService(it)
         }
         if (settings.refreshLinksOnOpen) {
@@ -315,10 +315,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun toggleVpnService() {
         if (isRunning) {
-            TProxyService.stop(applicationContext)
+            AppService.stop(applicationContext)
             return
         }
-        TProxyService.start(applicationContext, false)
+        AppService.start(applicationContext, false)
     }
 
     private fun profileSelect(index: Int, profile: ProfileList) {
@@ -329,7 +329,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 if (selectedProfile == profile.id) return@withContext
                 settings.selectedProfile = profile.id
                 profileAdapter.notifyItemChanged(index)
-                if (isRunning) TProxyService.newConfig(applicationContext)
+                if (isRunning) AppService.newConfig(applicationContext)
                 if (ref == null || ref.id == profile.id) return@withContext
                 profiles.indexOfFirst { it.id == ref.id }.let {
                     if (it != -1) profileAdapter.notifyItemChanged(it)

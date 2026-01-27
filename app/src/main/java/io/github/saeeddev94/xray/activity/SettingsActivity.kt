@@ -17,7 +17,7 @@ import io.github.saeeddev94.xray.Settings
 import io.github.saeeddev94.xray.adapter.SettingAdapter
 import io.github.saeeddev94.xray.databinding.ActivitySettingsBinding
 import io.github.saeeddev94.xray.helper.TransparentProxyHelper
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -213,7 +213,7 @@ class SettingsActivity : AppCompatActivity() {
                 settings.tproxyHotspot = tproxyHotspot
                 settings.tproxyTethering = tproxyTethering
                 settings.transparentProxy = transparentProxy
-                if (stopService) TProxyService.stop(this@SettingsActivity)
+                if (stopService) AppService.stop(this@SettingsActivity)
                 finish()
             }
         }

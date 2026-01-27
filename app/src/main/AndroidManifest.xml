@@ -82,7 +82,7 @@
             android:name=".activity.SettingsActivity"
             android:parentActivityName=".activity.MainActivity" />
         <service
-            android:name=".service.TProxyService"
+            android:name="com.tohsoft.vpn.services.AppService"
             android:exported="true"
             android:foregroundServiceType="specialUse"
             android:permission="android.permission.BIND_VPN_SERVICE">

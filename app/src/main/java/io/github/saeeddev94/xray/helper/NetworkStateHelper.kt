@@ -1,7 +1,7 @@
 package io.github.saeeddev94.xray.helper
 
 import com.topjohnwu.superuser.Shell
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import java.io.File
 
 class NetworkStateHelper() {
@@ -23,8 +23,8 @@ class NetworkStateHelper() {
     }
 
     private fun makeScript(file: File) {
-        val pkg = TProxyService.PKG_NAME
-        val action = TProxyService.NETWORK_UPDATE_SERVICE_ACTION_NAME
+        val pkg = AppService.PKG_NAME
+        val action = AppService.NETWORK_UPDATE_SERVICE_ACTION_NAME
         val content = arrayListOf(
             "#!/bin/sh",
             "",

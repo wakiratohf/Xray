@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.service.quicksettings.Tile
 import android.util.Log
+import com.tohsoft.vpn.services.AppService
 import io.github.saeeddev94.xray.R
 import io.github.saeeddev94.xray.Settings
 import io.github.saeeddev94.xray.Xray
@@ -25,10 +26,10 @@ import java.io.File
 import kotlin.reflect.cast
 
 @SuppressLint("VpnServicePolicy")
-class XrayManager(private val service: TProxyService) {
+class XrayManager(private val service: AppService) {
 
     interface VpnServiceListener {
-        fun getService(): TProxyService
+        fun getService(): AppService
         fun showToast(message: String)
         fun createNotification(name: String): Notification
         fun startForeground(id: Int, notification: Notification)
@@ -69,7 +70,7 @@ class XrayManager(private val service: TProxyService) {
             val name = configName(profile)
             val notification = service.createNotification(name)
             service.showToast(name)
-            service.broadcastStart(TProxyService.NEW_CONFIG_SERVICE_ACTION_NAME, name)
+            service.broadcastStart(AppService.NEW_CONFIG_SERVICE_ACTION_NAME, name)
             service.updateTile(name, Tile.STATE_ACTIVE)
             service.notificationManager.notify(1, notification)
         }
@@ -243,7 +244,7 @@ class XrayManager(private val service: TProxyService) {
 
         service.showToast("Start VPN")
         isRunning = true
-        service.broadcastStart(TProxyService.START_VPN_SERVICE_ACTION_NAME, name)
+        service.broadcastStart(AppService.START_VPN_SERVICE_ACTION_NAME, name)
         service.updateTile(name, Tile.STATE_ACTIVE)
     }
 }

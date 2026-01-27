@@ -1,4 +1,4 @@
-package io.github.saeeddev94.xray.service
+package com.tohsoft.vpn.services
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import io.github.saeeddev94.xray.BuildConfig
 import io.github.saeeddev94.xray.R
 import io.github.saeeddev94.xray.activity.MainActivity
+import io.github.saeeddev94.xray.service.XrayManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,7 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 @SuppressLint("VpnServicePolicy")
-class TProxyService : VpnService(), XrayManager.VpnServiceListener {
+class AppService : VpnService(), XrayManager.VpnServiceListener {
 
     companion object {
         init {
@@ -57,7 +58,7 @@ class TProxyService : VpnService(), XrayManager.VpnServiceListener {
         }
 
         private fun startCommand(context: Context, name: String, foreground: Boolean = false) {
-            Intent(context, TProxyService::class.java).also {
+            Intent(context, AppService::class.java).also {
                 it.action = name
                 if (foreground) {
                     context.startForegroundService(it)
@@ -101,7 +102,7 @@ class TProxyService : VpnService(), XrayManager.VpnServiceListener {
         super.onDestroy()
     }
 
-    override fun getService(): TProxyService {
+    override fun getService(): AppService {
         return this
     }
 
@@ -125,7 +126,7 @@ class TProxyService : VpnService(), XrayManager.VpnServiceListener {
         val pendingStop = PendingIntent.getService(
             applicationContext,
             STOP_VPN_SERVICE_ACTION_ID,
-            Intent(applicationContext, TProxyService::class.java).also {
+            Intent(applicationContext, AppService::class.java).also {
                 it.action = STOP_VPN_SERVICE_ACTION_NAME
             },
             PendingIntent.FLAG_IMMUTABLE

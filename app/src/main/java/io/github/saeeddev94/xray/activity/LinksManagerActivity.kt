@@ -18,7 +18,7 @@ import io.github.saeeddev94.xray.fragment.LinkFormFragment
 import io.github.saeeddev94.xray.helper.HttpHelper
 import io.github.saeeddev94.xray.helper.IntentHelper
 import io.github.saeeddev94.xray.helper.LinkHelper
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import io.github.saeeddev94.xray.viewmodel.LinkViewModel
 import io.github.saeeddev94.xray.viewmodel.ProfileViewModel
 import kotlinx.coroutines.Dispatchers
@@ -116,7 +116,7 @@ class LinksManagerActivity : AppCompatActivity() {
             }
             withContext(Dispatchers.Main) {
                 settings.lastRefreshLinks = System.currentTimeMillis()
-                TProxyService.newConfig(applicationContext)
+                AppService.newConfig(applicationContext)
                 loadingDialog.dismiss()
                 finish()
             }

@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.SystemClock
 import io.github.saeeddev94.xray.Settings
 import io.github.saeeddev94.xray.helper.TransparentProxyHelper
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,7 +31,7 @@ class BootReceiver : BroadcastReceiver() {
         if (xrayCorePid.exists()) xrayCorePid.delete()
         if (networkMonitorPid.exists()) networkMonitorPid.delete()
         if (!settings.bootAutoStart) {
-            TProxyService.stop(context)
+            AppService.stop(context)
             return
         }
         if (settings.transparentProxy) {
@@ -42,13 +42,13 @@ class BootReceiver : BroadcastReceiver() {
                 val bypassWiFi = transparentProxyHelper.bypassWiFi(state)
                 transparentProxyHelper.monitorNetwork()
                 withContext(Dispatchers.Main) {
-                    if (bypassWiFi) TProxyService.stop(context)
-                    else TProxyService.start(context, false)
+                    if (bypassWiFi) AppService.stop(context)
+                    else AppService.start(context, false)
                     pendingResult.finish()
                 }
             }
             return
         }
-        TProxyService.start(context, settings.tun2socks)
+        AppService.start(context, settings.tun2socks)
     }
 }

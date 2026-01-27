@@ -4,7 +4,7 @@ import android.content.Context
 import com.topjohnwu.superuser.Shell
 import io.github.saeeddev94.xray.BuildConfig
 import io.github.saeeddev94.xray.Settings
-import io.github.saeeddev94.xray.service.TProxyService
+import com.tohsoft.vpn.services.AppService
 import java.io.FileOutputStream
 
 class TransparentProxyHelper(
@@ -71,11 +71,11 @@ class TransparentProxyHelper(
         val isOnline = networkStateHelper.isOnline(state)
         val isRunning = settings.xrayCorePid().exists()
         if (!isOnline || bypassWiFi(state)) {
-            TProxyService.stop(context)
+            AppService.stop(context)
             return
         }
         if (!isRunning) {
-            TProxyService.start(context, false)
+            AppService.start(context, false)
             return
         }
         refreshProxy()
