@@ -75,7 +75,7 @@ func Start(dir string, config string) (err error) {
 		}
 		return
 	}
-	
+
 	// Mark as running
 	state = stateRunning
 	return nil
