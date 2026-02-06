@@ -18,10 +18,11 @@ import io.github.saeeddev94.xray.R
 import io.github.saeeddev94.xray.activity.MainActivity
 import io.github.saeeddev94.xray.service.XrayManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.Executors
 
 @SuppressLint("VpnServicePolicy")
 class AppService : VpnService(), XrayManager.VpnServiceListener {
@@ -71,7 +72,14 @@ class AppService : VpnService(), XrayManager.VpnServiceListener {
 
     internal val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
     private val xrayManager by lazy { XrayManager(this) }
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // gomobile/JNI is sensitive to being called from different threads concurrently.
+    // Use a single dedicated thread to serialize all service commands that touch XrayCore.
+    private val engineDispatcher = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "XrayEngine").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
+
+    private val scope = CoroutineScope(SupervisorJob() + engineDispatcher)
     private var toast: Toast? = null
 
     external fun TProxyStartService(configPath: String, fd: Int)
@@ -97,6 +105,7 @@ class AppService : VpnService(), XrayManager.VpnServiceListener {
 
     override fun onDestroy() {
         scope.cancel()
+        engineDispatcher.close()
         xrayManager.onDestroy()
         toast = null
         super.onDestroy()
