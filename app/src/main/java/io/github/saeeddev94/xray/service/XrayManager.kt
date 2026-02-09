@@ -105,6 +105,19 @@ class XrayManager(private val service: AppService) {
         }
     }
 
+    /**
+     * Direct core state check.
+     * - TransparentProxy mode uses root helper (separate process) so we rely on pidfile.
+     * - tun2socks mode runs XrayCore in-process (gomobile), so we can query it directly.
+     */
+    fun isCoreRunning(): Boolean {
+        return if (settings.transparentProxy) {
+            transparentProxyHelper.isRunning()
+        } else {
+            XrayCore.isRunning()
+        }
+    }
+
     suspend fun getProfile(): Profile? {
         return if (settings.selectedProfile == 0L) {
             null
@@ -248,4 +261,3 @@ class XrayManager(private val service: AppService) {
         service.updateTile(name, Tile.STATE_ACTIVE)
     }
 }
-

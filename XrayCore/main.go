@@ -22,6 +22,12 @@ func Stop() string {
 	return lib.WrapError(err)
 }
 
+// IsRunning returns whether the core is currently started.
+// Exposed for gomobile so Kotlin/Java can directly query the state.
+func IsRunning() bool {
+	return lib.IsRunning()
+}
+
 func Version() string {
 	return lib.Version()
 }
