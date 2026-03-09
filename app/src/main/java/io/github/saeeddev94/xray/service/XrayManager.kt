@@ -57,7 +57,7 @@ class XrayManager(private val service: AppService) {
         if (profile == null) return
         getConfig(profile, globalConfigs)?.let {
             startXray(it)
-            startVPN(profile)
+            startVPN(it, profile)
         }
     }
 
@@ -77,15 +77,15 @@ class XrayManager(private val service: AppService) {
     }
 
     fun stopVPN() {
+        isRunning = false
+        stopXray()
         if (settings.transparentProxy) {
             transparentProxyHelper.disableProxy()
         } else {
-            service.TProxyStopService()
             runCatching { tunDevice?.close() }
             tunDevice = null
-            isRunning = false
+            service.TProxyStopService()
         }
-        stopXray()
         service.stopForeground(true)
         service.showToast("Stop VPN")
         service.broadcastStop()
@@ -168,7 +168,7 @@ class XrayManager(private val service: AppService) {
         else XrayCore.stop()
     }
 
-    private fun startVPN(profile: Profile?) {
+    private fun startVPN(config: XrayConfig, profile: Profile?) {
         if (settings.transparentProxy) {
             transparentProxyHelper.enableProxy()
             transparentProxyHelper.monitorNetwork()

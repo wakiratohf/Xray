@@ -2,7 +2,12 @@ package lib
 
 import (
 	"errors"
+	"log"
+	"runtime"
+	"runtime/debug"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/core"
@@ -10,14 +15,26 @@ import (
 )
 
 var (
-	coreMu         sync.Mutex
+	coreMu         sync.RWMutex
 	coreServer     *core.Instance
 	coreConfigPath string
+	// Dùng atomic để check nhanh trạng thái mà không cần lock
+	isStopping atomic.Bool
 )
 
-var ErrAlreadyRunning = errors.New("xray core already running")
+// Hàm helper để bắt panic (chống crash app)
+func safeRun(action func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("XRAYVPN-JNI: RECOVERED FROM PANIC: %v", r)
+			debug.PrintStack()
+		}
+	}()
+	action()
+}
 
 func Server(config string) (*core.Instance, error) {
+	log.Printf("Server: loading config path=%s", config)
 	file := cmdarg.Arg{config}
 	json, err := core.LoadConfig("json", file)
 	if err != nil {
@@ -31,28 +48,30 @@ func Server(config string) (*core.Instance, error) {
 }
 
 // Start is a safe "connect" operation.
-//
-// Methodology:
-//   - It is concurrency-safe.
-//   - It is idempotent when called with the same config while already running.
-//   - If called while already running with a different config, it performs a safe restart.
-//   - If startup fails after instance creation, it closes the instance and leaves the global state stopped.
 func Start(dir string, config string) (err error) {
+	// Bọc trong safeRun để nếu quá trình start bị panic thì không sập app
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Start: Panic recovered: %v", r)
+			err = errors.New("panic during start")
+		}
+	}()
+
 	coreMu.Lock()
 	defer coreMu.Unlock()
 
+	// Reset cờ stopping
+	isStopping.Store(false)
+
+	log.Printf("Start: entry dir=%s config=%s", dir, config)
 	SetEnv(dir)
 
-	// Already running with the same config => no-op.
 	if coreServer != nil && coreConfigPath == config {
 		return nil
 	}
 
-	// If running with a different config, stop current instance first (serialized under lock).
 	if coreServer != nil {
-		_ = coreServer.Close()
-		coreServer = nil
-		coreConfigPath = ""
+		stopInternal() // Gọi hàm stop nội bộ
 	}
 
 	srv, err := Server(config)
@@ -61,43 +80,89 @@ func Start(dir string, config string) (err error) {
 	}
 
 	if err = srv.Start(); err != nil {
-		_ = srv.Close()
+		srv.Close()
 		return err
 	}
 
 	coreServer = srv
 	coreConfigPath = config
+	log.Printf("Start: core started successfully")
 	return nil
 }
 
-// Restart stops any running instance (if present) and starts a new one with the provided config.
-// It is safe to call even if the core isn't running.
-func Restart(dir string, config string) error {
-	// Start now implements safe restart semantics when config differs.
-	return Start(dir, config)
-}
-
 // Stop is a safe "disconnect" operation.
-// It is concurrency-safe and idempotent.
 func Stop() error {
 	coreMu.Lock()
 	defer coreMu.Unlock()
+	return stopInternal()
+}
 
+// Hàm stop nội bộ, giả định là đã có Lock từ bên ngoài
+func stopInternal() error {
 	if coreServer == nil {
 		return nil
 	}
 
-	err := coreServer.Close()
+	// 1. Đánh dấu đang dừng để chặn các luồng đọc khác
+	isStopping.Store(true)
+
+	log.Printf("XRAYVPN-JNI: Stop: Closing instance...")
+
+	// 2. Sử dụng defer recover riêng cho đoạn Close này
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("XRAYVPN-JNI: Panic during Close: %v", r)
+			}
+		}()
+		err = coreServer.Close()
+	}()
+
+	// 3. QUAN TRỌNG: Ngủ một chút để các Goroutine "ma" (như DefaultDispatch)
+	// có thời gian nhận tín hiệu đóng và tự hủy trước khi ta set nil.
+	// 200ms - 500ms là đủ để tránh race condition.
+	time.Sleep(500 * time.Millisecond)
+
 	coreServer = nil
 	coreConfigPath = ""
+
+	// 4. Dọn dẹp bộ nhớ
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	log.Printf("XRAYVPN-JNI: Stop: Cleanup complete.")
 	return err
 }
 
 // IsRunning reports whether the core is currently started.
 func IsRunning() bool {
-	coreMu.Lock()
-	defer coreMu.Unlock()
+	// Nếu đang trong quá trình stop, trả về false luôn để UI không cố update
+	if isStopping.Load() {
+		return false
+	}
+
+	coreMu.RLock()
+	defer coreMu.RUnlock()
 	return coreServer != nil
+}
+
+// Bạn cần bọc tất cả các hàm truy cập vào coreServer như thế này
+func GetTrafficStats() (int64, int64) {
+	if isStopping.Load() {
+		return 0, 0
+	}
+
+	coreMu.RLock()
+	defer coreMu.RUnlock()
+
+	if coreServer == nil {
+		return 0, 0
+	}
+
+	// Ví dụ logic lấy stats...
+	// return up, down
+	return 0, 0
 }
 
 func Version() string {
