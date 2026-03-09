@@ -159,9 +159,6 @@ func GetTrafficStats() (int64, int64) {
 	if coreServer == nil {
 		return 0, 0
 	}
-
-	// Ví dụ logic lấy stats...
-	// return up, down
 	return 0, 0
 }
 
